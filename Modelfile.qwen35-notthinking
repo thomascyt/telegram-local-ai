@@ -1,0 +1,2 @@
+FROM qwen35-9b-bartowski-q8-mtp:latest
+parameter think false
