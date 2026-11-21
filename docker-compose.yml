@@ -12,7 +12,5 @@ services:
       - SEARCH_ENABLED=${SEARCH_ENABLED}
       - BRAVE_API_KEY=${BRAVE_API_KEY}
     restart: unless-stopped
-    dns:
-      - 8.8.8.8
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    network_mode: host
+
