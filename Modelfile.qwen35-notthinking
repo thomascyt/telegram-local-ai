@@ -1,2 +1,2 @@
-FROM qwen35-9b-bartowski-q8-mtp:latest
+FROM qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest
 parameter think false

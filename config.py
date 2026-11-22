@@ -10,7 +10,7 @@ Optional (defaults shown):
     TELEGRAM_ALLOWED_USER_IDS   Comma-separated Telegram user IDs, e.g. "123,456".
                                 Empty/unset = allow nobody (fail closed).
     LLM_BASE_URL                http://127.0.0.1:8080/v1
-    LLM_MODEL                   qwen3.6-35b-a3b-ud-q4_k_xl
+    LLM_MODEL                   qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest
     CONTEXT_LENGTH              8192
     MAX_TOKENS                  4096
     TEMPERATURE                 0.7
@@ -160,7 +160,7 @@ class Config:
     telegram_bot_token: str = field(repr=False)
     telegram_allowed_user_ids: frozenset[int] = frozenset()
     llm_base_url: str = "http://127.0.0.1:8080/v1"
-    llm_model: str = "qwen35-9b-bartowski-q8-mtp:latest"
+    llm_model: str = "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest"
     context_length: int = 8192
     max_tokens: int = 4096
     temperature: float = 0.7
@@ -219,7 +219,7 @@ def load_config() -> Config:
         llm_base_url=_parse_url_strict(
             "LLM_BASE_URL", "http://127.0.0.1:8080/v1"
         ),
-        llm_model=_env("LLM_MODEL", "qwen35-9b-bartowski-q8-mtp:latest") or "qwen35-9b-bartowski-q8-mtp:latest",
+        llm_model=_env("LLM_MODEL", "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest") or "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest",
         context_length=_parse_int_strict("CONTEXT_LENGTH", 8192),
         max_tokens=_parse_int_strict("MAX_TOKENS", 4096),
         temperature=_parse_float_strict("TEMPERATURE", 0.7),

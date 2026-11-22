@@ -34,8 +34,8 @@ pip install -r requirements.txt
 |---|---|---|---|
 | `TELEGRAM_BOT_TOKEN` | **Yes** | — | Bot token from @BotFather |
 | `TELEGRAM_ALLOWED_USER_IDS` | No | *(empty = reject all)* | Comma-separated Telegram user IDs |
-| `LLM_BASE_URL` | No | `http://127.0.0.1:8080/v1` | LLM API endpoint |
-| `LLM_MODEL` | No | `qwen3.6-35b-a3b-ud-q4_k_xl` | Model name |
+| `LLM_BASE_URL` | No | `http://127.0.0.1:11434/v1` | LLM API endpoint |
+| `LLM_MODEL` | No | `qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest` | Model name |
 | `CONTEXT_LENGTH` | No | `8192` | Token capacity of the context window |
 | `MAX_TOKENS` | No | `4096` | Maximum output tokens per response |
 | `TEMPERATURE` | No | `0.7` | Sampling temperature (range 0–2) |
