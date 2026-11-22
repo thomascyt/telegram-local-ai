@@ -9,6 +9,7 @@ Messages are routed through a conversation manager that budgets tokens, enforces
 - **Async concurrency control** — one request at a time per user (`asyncio.Lock`)
 - **Slash commands**: `/start`, `/help`, `/new` (clear), `/status`, `/model`, `/stats`, `/history`
 - **User allow-list** — only authorised Telegram user IDs can interact
+- **Web search via tool calling** — optional Brave Search integration; the model can invoke a `web_search` tool on its own (`/search on`) or run a one-off (`/search query <question>`). Per-user, off by default
 - **All secrets via environment variables** — nothing hardcoded
 
 ## Prerequisites
@@ -42,6 +43,43 @@ pip install -r requirements.txt
 | `THINKING_MODE` | No | `false` | Enable reasoning/thinking mode (`true`/`false`) |
 | `INFERENCE_TIMEOUT` | No | `120` | Seconds to wait for LLM response |
 | `HISTORY_LIMIT` | No | `12` | Maximum conversation turns per user |
+| `SEARCH_ENABLED` | No | `false` | Admin master switch for web search |
+| `BRAVE_API_KEY` | No | *(empty = search disabled)* | Brave Search API key (see [Web search](#web-search-brave-search)) |
+
+## Web search (Brave Search)
+
+The bot can answer questions using **current, up-to-date web information** through the
+[Brave Search API](https://api.search.brave.com/) — see `web_search.py`. The client is a thin
+wrapper around the API, so another search provider can be swapped in if you prefer a different engine.
+
+There are two ways to use it:
+
+- **Tool calling (`/search on`)** — when enabled, the model decides on its own whether to call the
+  `web_search` tool for time-sensitive questions (news, weather, prices, sports, etc.) rather than
+  answering purely from memory. This is **per-user and off by default**.
+- **One-off (`/search query <your question>`)** — run a single search and reply with an
+  LLM-summarized answer, regardless of the toggle.
+
+You can check status and toggle it per account:
+
+- `/search` — show the current ON/OFF status
+- `/search on` / `/search off` — enable or disable the web-search *tool* for your account
+
+### Enabling it
+
+Web search is disabled until you set these in `.env`:
+
+```bash
+SEARCH_ENABLED=true
+BRAVE_API_KEY=your-brave-api-key-here
+```
+
+`SEARCH_ENABLED=true` is the **admin master switch** — without it the bot replies that web search is
+disabled. `BRAVE_API_KEY` is required for the search calls. Get a key at
+<https://api.search.brave.com/> and add it to `.env` (never commit the real value).
+
+> **Per-user opt-in.** Even with the env vars set, a user must run `/search on` for the model to
+> call the search tool automatically; otherwise it answers from knowledge only.
 
 ## Running
 
@@ -192,8 +230,7 @@ llm_client.py          # Async HTTP client for LLM inference
 conversation.py        # Per-user conversation manager with context budgeting
 telegram_bot.py        # Telegram bot front-end (python-telegram-bot v22)
 calculator.py          # Simple math utilities (test utility)
-benchmark_16k.py       # Primality test benchmark
-strata_agent_test.py   # Interval merging algorithm test
+web_search.py          # Brave Search API client (web-search tool)
 __main__.py            # Module entry point
 requirements.txt       # Python dependencies
 pyproject.toml         # Package metadata & pytest config
