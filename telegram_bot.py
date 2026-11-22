@@ -83,6 +83,25 @@ def _set_user_stats(context: ContextTypes.DEFAULT_TYPE, stats: UserStats) -> Non
     }
 
 
+def _friendly_error_message(exc: InferenceError) -> str:
+    """Return a user-friendly reply for an :class:`InferenceError`.
+
+    Detects the "backend is not serving" state — HTTP 404 (endpoint not
+    found) or 502/503 (service unavailable) on the ``/chat/completions``
+    endpoint — which is what happens when the local Ollama server is down
+    (e.g. stopped to free up VRAM).  In that case we return a friendly
+    message instead of leaking a raw HTTP error to the user.  Any other
+    failure falls back to the generic ``Inference failed`` reply.
+    """
+    status = getattr(exc, "status_code", None)
+    if status in (404, 502, 503):
+        return (
+            "🫙 Ollama is currently down (likely stopped to free up VRAM). "
+            "Restart it and I'll run inference again. 🙂"
+        )
+    return f"❌ Inference failed: {exc}"
+
+
 # ── TelegramBot ────────────────────────────────────────────────────────
 
 
@@ -329,7 +348,7 @@ class TelegramBot:
         except InferenceError as exc:
             logger.error("InferenceError for user %d: %s", user_id, exc)
             await update.message.reply_text(  # type: ignore[attr-defined]
-                f"❌ Inference failed: {exc}"
+                _friendly_error_message(exc)
             )
         except Exception as exc:
             logger.exception("Unhandled error for user %d", user_id)
@@ -420,7 +439,7 @@ class TelegramBot:
             await update.message.reply_text(resp.text[:4096])  # type: ignore[attr-defined]
 
         except InferenceError as exc:
-            error_msg = f"❌ Inference failed: {exc}"
+            error_msg = _friendly_error_message(exc)
             logger.error("InferenceError for user %d: %s", user_id, exc)
             await update.message.reply_text(error_msg)  # type: ignore[attr-defined]
         except ValueError as exc:

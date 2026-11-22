@@ -1,8 +1,9 @@
-"""Asynchronous LLM inference client for Strata-compatible APIs.
+"""Asynchronous LLM inference client for OpenAI-compatible endpoints.
 
-Sends chat-completion requests to a Strata instance (OpenAI-compatible
-endpoint) and returns structured results including the assistant text,
-token counts, and generation speed.
+Sends chat-completion requests to a local LLM server (e.g. Ollama) exposed
+as an OpenAI-compatible ``/chat/completions`` endpoint, and returns
+structured results including the assistant text, token counts, and
+generation speed.
 """
 
 from __future__ import annotations
@@ -65,9 +66,9 @@ class InferenceError(Exception):
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
-# Backend identifiers used to scope Strata-specific behaviour.
-BACKEND_STRATA = "strata"
-_DEFAULT_BACKEND = BACKEND_STRATA
+# The client talks to a single OpenAI-compatible backend (Ollama), so no
+# backend-specific request shaping is needed — the request body is a plain
+# OpenAI chat-completion payload.
 
 
 def parse_tool_arguments(raw: str | None) -> dict[str, Any]:
@@ -163,16 +164,16 @@ def _build_chat_request(
     model: str,
     max_tokens: int,
     temperature: float,
-    thinking_mode: bool,
     *,
-    backend: str = _DEFAULT_BACKEND,
     tools: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Build an OpenAI-compatible chat-completion request.
+    """Build a plain OpenAI-compatible chat-completion request.
 
-    For the Strata backend ``chat_template_kwargs`` is always sent so that
-    downstream inference engines can toggle their internal thinking /
-    reasoning mode explicitly.  Other backends may omit it entirely.
+    The body is intentionally minimal (``model``, ``messages``,
+    ``max_tokens``, ``temperature``, and optionally ``tools``).  Ollama — the
+    sole backend — handles reasoning/thinking at the model level, so no
+    backend-specific kwargs (such as Strata's ``chat_template_kwargs``) are
+    sent.
 
     ``tools`` is an optional list of OpenAI-style tool/function definitions.
     When provided, the model is allowed to return ``tool_calls`` on the
@@ -188,8 +189,6 @@ def _build_chat_request(
     # otherwise bloat every request and confuse some inference engines.
     if tools:
         body["tools"] = tools
-    if backend == BACKEND_STRATA:
-        body["chat_template_kwargs"] = {"enable_thinking": thinking_mode}
     return body
 
 
@@ -228,20 +227,17 @@ def _validate_first_choice(
 
 
 class LlmClient:
-    """Asynchronous client for Strata-compatible inference endpoints."""
+    """Asynchronous client for OpenAI-compatible inference endpoints (Ollama)."""
 
     def __init__(
         self,
         config: "Config",
         base_url: str | None = None,
-        *,
-        backend: str = _DEFAULT_BACKEND,
     ) -> None:
         self._config = config
         url = (base_url or config.llm_base_url).rstrip("/")
         self._endpoint = f"{url}/chat/completions"
         self._client = httpx.AsyncClient(timeout=float(config.inference_timeout))
-        self._backend = backend
 
     async def complete(
         self,
@@ -272,8 +268,6 @@ class LlmClient:
             model=self._config.llm_model,
             max_tokens=self._config.max_tokens,
             temperature=self._config.temperature,
-            thinking_mode=self._config.thinking_mode,
-            backend=self._backend,
             tools=tools,
         )
 
@@ -343,10 +337,14 @@ class LlmClient:
         # ── Generation speed ──────────────────────────────────────
         tokens_per_second: float | None = None
 
-        # Primary: top-level timings.predicted_per_second (Strata).
+        # Primary: top-level timings.  Ollama reports `prediction_per_second`;
+        # fall back to the older `predicted_per_second` name for compatibility.
         raw_timings = data.get("timings")
         if isinstance(raw_timings, dict):
-            pps = raw_timings.get("predicted_per_second")
+            pps = (
+                raw_timings.get("prediction_per_second")
+                or raw_timings.get("predicted_per_second")
+            )
             if isinstance(pps, (int, float)) and pps > 0.0:
                 tokens_per_second = float(pps)
 

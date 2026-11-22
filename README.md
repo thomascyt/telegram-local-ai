@@ -1,6 +1,6 @@
 # telegram-local-ai
 
-A Telegram bot backed by a **local LLM** (Strata-compatible OpenAI API).  
+A Telegram bot backed by a **local LLM** (OpenAI-compatible API served by Ollama).  
 Messages are routed through a conversation manager that budgets tokens, enforces history limits, and serialises per-user requests.
 
 ## Features
@@ -15,7 +15,7 @@ Messages are routed through a conversation manager that budgets tokens, enforces
 
 - Python 3.14+
 - A Telegram bot token from [@BotFather](https://t.me/BotFather)
-- A local LLM serving an OpenAI-compatible API (e.g. Strata at `http://127.0.0.1:8080/v1`)
+- A local LLM serving an OpenAI-compatible API (e.g. Ollama at `http://127.0.0.1:11434/v1`)
 
 ## Installation
 

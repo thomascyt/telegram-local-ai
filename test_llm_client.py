@@ -116,64 +116,48 @@ def mock_client(config, monkeypatch):
 
 
 class TestBuildChatRequest:
+    """The client builds a plain OpenAI chat-completion payload.
+
+    Ollama is the sole backend and handles reasoning/thinking at the model
+    level, so no Strata-specific ``chat_template_kwargs`` are ever sent.
+    """
+
     def test_default_payload(self):
         msgs = [{"role": "user", "content": "Hi"}]
-        payload = _build_chat_request(msgs, "model-x", 512, 0.7, False)
+        payload = _build_chat_request(msgs, "model-x", 512, 0.7)
 
         assert payload["model"] == "model-x"
         assert payload["messages"] == msgs
         assert payload["max_tokens"] == 512
         assert payload["temperature"] == 0.7
-        # Strata backend always sends chat_template_kwargs
-        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
-
-    def test_thinking_mode_enabled(self):
-        msgs = [{"role": "user", "content": "Explain"}]
-        payload = _build_chat_request(msgs, "model-x", 256, 1.0, True)
-
-        assert payload["chat_template_kwargs"] == {"enable_thinking": True}
-
-    def test_thinking_mode_disabled(self):
-        """Strata backend always sends chat_template_kwargs (value=False)."""
-        msgs = [{"role": "user", "content": "Explain"}]
-        payload = _build_chat_request(msgs, "model-x", 256, 1.0, False)
-
-        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        # No backend-specific kwargs — Ollama handles reasoning at model level.
+        assert "chat_template_kwargs" not in payload
 
     def test_messages_passed_through(self):
         msgs = [
             {"role": "system", "content": "You are a bot."},
             {"role": "user", "content": "Hello"},
         ]
-        payload = _build_chat_request(msgs, "m", 100, 0.5, False)
+        payload = _build_chat_request(msgs, "m", 100, 0.5)
 
         assert payload["messages"] == msgs
-
-    def test_backend_others_omit_kwargs(self):
-        """Non-Strata backends do NOT send chat_template_kwargs."""
-        msgs = [{"role": "user", "content": "Hi"}]
-        payload = _build_chat_request(
-            msgs, "m", 100, 0.5, True, backend="ollama"
-        )
-
-        assert "chat_template_kwargs" not in payload
 
     def test_tools_included_when_provided(self):
         msgs = [{"role": "user", "content": "Hi"}]
         tools = [{"type": "function", "function": {"name": "web_search"}}]
-        payload = _build_chat_request(msgs, "m", 100, 0.5, False, tools=tools)
+        payload = _build_chat_request(msgs, "m", 100, 0.5, tools=tools)
 
         assert payload["tools"] == tools
 
     def test_tools_omitted_when_none(self):
         msgs = [{"role": "user", "content": "Hi"}]
-        payload = _build_chat_request(msgs, "m", 100, 0.5, False, tools=None)
+        payload = _build_chat_request(msgs, "m", 100, 0.5, tools=None)
 
         assert "tools" not in payload
 
     def test_tools_omitted_when_empty(self):
         msgs = [{"role": "user", "content": "Hi"}]
-        payload = _build_chat_request(msgs, "m", 100, 0.5, False, tools=[])
+        payload = _build_chat_request(msgs, "m", 100, 0.5, tools=[])
 
         assert "tools" not in payload
 
@@ -253,8 +237,8 @@ class TestLlmClient:
         await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_request_with_thinking_mode(self, monkeypatch):
-        """Verify chat_template_kwargs is sent with enable_thinking=True."""
+    async def test_thinking_mode_config_still_allows_request(self, monkeypatch):
+        """thinking_mode config is validated but never sent in the payload."""
         cfg = _make_config(monkeypatch, thinking_mode_env="true")
 
         sent: list[dict] = []
@@ -269,12 +253,13 @@ class TestLlmClient:
         await client.complete([{"role": "user", "content": "Hi"}])
         await client.aclose()
 
+        # Request is still sent; reasoning is handled by the model, not kwargs.
         assert len(sent) == 1
-        assert sent[0]["chat_template_kwargs"]["enable_thinking"] is True
+        assert "chat_template_kwargs" not in sent[0]
 
     @pytest.mark.asyncio
-    async def test_request_thinking_off_sends_false(self, monkeypatch):
-        """When thinking is disabled the payload must carry enable_thinking=False."""
+    async def test_thinking_off_does_not_add_kwargs(self, monkeypatch):
+        """With thinking disabled the payload carries no chat_template_kwargs."""
         cfg = _make_config(monkeypatch, thinking_mode_env="false")
 
         sent: list[dict] = []
@@ -290,7 +275,7 @@ class TestLlmClient:
         await client.aclose()
 
         assert len(sent) == 1
-        assert sent[0]["chat_template_kwargs"]["enable_thinking"] is False
+        assert "chat_template_kwargs" not in sent[0]
 
     @pytest.mark.asyncio
     async def test_http_500_raises_inference_error(self, monkeypatch):

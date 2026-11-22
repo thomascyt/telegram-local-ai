@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "telegram-local-ai"
 version = "0.1.0"
-description = "Telegram bot backed by a local LLM (Strata-compatible API)"
+description = "Telegram bot backed by a local LLM (OpenAI-compatible API, e.g. Ollama)"
 requires-python = ">=3.14"
 dependencies = [
     "python-telegram-bot[v2]>=22.0",
