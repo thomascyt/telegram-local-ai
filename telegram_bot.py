@@ -44,12 +44,8 @@ from config import Config, load_config
 
 logger = logging.getLogger(__name__)
 
-# Ensure INFO-level logs are visible (Python defaults to WARNING)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# (Logging is configured in ``main()`` only; no import-time ``basicConfig`` so
+# importing this module — e.g. from tests — does not touch global logging.)
 
 
 # ── Per-user state helpers via context user_data ───────────────────────
@@ -133,8 +129,7 @@ class TelegramBot:
         # Per-user web-search tool toggle (Off / On).  Default is Off so the
         # web-search tool is never sent unless the user opts in via
         # ``/search on``.  The ``/search query`` one-off path does not touch
-        # this state.
-        self._search_enabled: dict[int, bool] = {}
+        # this state.  Toggle state is stored in ``context.user_data["search_enabled"]``.
 
     # ── Commands ────────────────────────────────────────────────────────
 
@@ -152,7 +147,9 @@ class TelegramBot:
             f"``/status`` — show configuration\n"
             f"``/model`` — current model\n"
             f"``/stats`` — last inference stats\n"
-            f"``/history`` — recent messages"
+            f"``/history`` — recent messages\n"
+            f"``/search on|off`` — toggle web search\n"
+            f"``/search query <question>`` — one-off web search"
         )
         await update.message.reply_text(welcome, parse_mode="Markdown")  # type: ignore[attr-defined]
 
@@ -387,25 +384,23 @@ class TelegramBot:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Process a normal (non-command) user message."""
-        logger.info("=== MESSAGE HANDLER CALLED ===")
         if not update.effective_user:
             logger.warning("No effective user found")
             return
         user_id = update.effective_user.id  # type: ignore[union-attr]
-        logger.info(f"Message from user {user_id}")
+        logger.info("Message from user %d", user_id)
 
         # --- allow-list check ---
         if self._config.telegram_allowed_user_ids and not self._config.is_user_allowed(user_id):
-            logger.warning(f"User {user_id} not allowed")
+            logger.warning("User %d not allowed", user_id)
             await update.message.reply_text(  # type: ignore[attr-defined]
                 "❌ You are not allowed to use this bot."
             )
             return
 
         text = update.message.text.strip() if update.message.text else ""  # type: ignore[union-attr]
-        logger.info(f"Message text: '{text[:100]}'")
         if not text:
-            logger.warning("Empty message text, returning")
+            logger.warning("Empty message text from user %d", user_id)
             return
 
         logger.info(f"Starting inference for user {user_id}")
@@ -478,18 +473,6 @@ class TelegramBot:
         )
 
         return app
-
-    # ── Start / shutdown (separate from handlers) ──────────────────────
-
-    async def _start_polling(self, app: Application) -> None:
-        """Start polling (internal hook for ``run``)."""
-        logger.info("Telegram bot starting… (allowed users: %s)", self._config.telegram_allowed_user_ids)
-        await app.updater.start_polling()
-
-    async def _stop_polling(self, app: Application) -> None:
-        """Stop polling and clean up resources."""
-        await app.updater.stop()
-        await self._cm.aclose()
 
     def run(self, *, poll_interval: float = 0.5) -> None:
         """Start the bot in a blocking call (starts and stops polling).

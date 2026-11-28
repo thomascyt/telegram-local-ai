@@ -9,7 +9,7 @@ Required:
 Optional (defaults shown):
     TELEGRAM_ALLOWED_USER_IDS   Comma-separated Telegram user IDs, e.g. "123,456".
                                 Empty/unset = allow nobody (fail closed).
-    LLM_BASE_URL                http://127.0.0.1:8080/v1
+    LLM_BASE_URL                http://127.0.0.1:11434/v1
     LLM_MODEL                   qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest
     CONTEXT_LENGTH              8192
     MAX_TOKENS                  4096
@@ -159,7 +159,7 @@ class Config:
 
     telegram_bot_token: str = field(repr=False)
     telegram_allowed_user_ids: frozenset[int] = frozenset()
-    llm_base_url: str = "http://127.0.0.1:8080/v1"
+    llm_base_url: str = "http://127.0.0.1:11434/v1"
     llm_model: str = "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest"
     context_length: int = 8192
     max_tokens: int = 4096
@@ -167,8 +167,6 @@ class Config:
     thinking_mode: bool = False
     inference_timeout: int = 120
     history_limit: int = 12
-    google_cse_api_key: str | None = None
-    google_cse_id: str | None = None
     brave_api_key: str | None = None
     search_enabled: bool = False
 
@@ -217,7 +215,7 @@ def load_config() -> Config:
             _env("TELEGRAM_ALLOWED_USER_IDS")
         ),
         llm_base_url=_parse_url_strict(
-            "LLM_BASE_URL", "http://127.0.0.1:8080/v1"
+            "LLM_BASE_URL", "http://127.0.0.1:11434/v1"
         ),
         llm_model=_env("LLM_MODEL", "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest") or "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest",
         context_length=_parse_int_strict("CONTEXT_LENGTH", 8192),
@@ -226,8 +224,6 @@ def load_config() -> Config:
         thinking_mode=_parse_bool_strict("THINKING_MODE", False),
         inference_timeout=_parse_int_strict("INFERENCE_TIMEOUT", 120),
         history_limit=_parse_int_strict("HISTORY_LIMIT", 12),
-        google_cse_api_key=_env("GOOGLE_CSE_API_KEY"),
-        google_cse_id=_env("GOOGLE_CSE_ID"),
         brave_api_key=_env("BRAVE_API_KEY"),
         search_enabled=_parse_bool_strict("SEARCH_ENABLED", False),
     )

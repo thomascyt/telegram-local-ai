@@ -43,8 +43,8 @@ def test_minimal_valid_config(monkeypatch: pytest.MonkeyPatch):
     cfg = _load(monkeypatch, TELEGRAM_BOT_TOKEN="123:ABC")
     assert cfg.telegram_bot_token == "123:ABC"
     assert cfg.telegram_allowed_user_ids == frozenset()
-    assert cfg.llm_base_url == "http://127.0.0.1:8080/v1"
-    assert cfg.llm_model == "qwen3.8-q3:24k"
+    assert cfg.llm_base_url == "http://127.0.0.1:11434/v1"
+    assert cfg.llm_model == "qwen35-9b-bartowski-q8-mtp-instruct-reasoning:latest"
     assert cfg.context_length == 8192
     assert cfg.max_tokens == 4096
     assert cfg.temperature == 0.7

@@ -2,7 +2,8 @@
 
 Wraps the Brave Search API so the chatbot can fetch a small number of
 up-to-date web results and inject them as context before LLM inference.
-The free tier allows 1,000 queries/month (no credit card required).
+The free tier allows 1,000 queries/month (requires a Brave Search API key;
+a credit card is not required to create one).
 
 The client is intentionally defensive: any failure (network error, API
 error, rate limit, empty result) is surfaced as a plain exception that
@@ -68,6 +69,9 @@ class WebSearchClient:
         self._api_key = api_key
         self._top_k = top_k
         self._max_context_chars = max_context_chars
+        # Keep the timeout as a plain scalar so the error handler can report
+        # it without walking the (opaque) httpx.Timeout object.
+        self._timeout_seconds = timeout
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={
@@ -88,7 +92,7 @@ class WebSearchClient:
             resp = await self._client.get(BRAVE_SEARCH_URL, params=params)
         except httpx.TimeoutException:
             raise WebSearchError(
-                f"Web search request timed out after {self._client.timeout.total_seconds()}s"
+                f"Web search request timed out after {self._timeout_seconds}s"
             ) from None
         except httpx.ConnectError as exc:
             raise WebSearchError(

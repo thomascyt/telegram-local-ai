@@ -874,10 +874,10 @@ class TestRunWithTools:
         resp = await cm.respond(7, "weather?", llm, enable_web_search=True)
 
         assert resp.text == "final answer"
-        # Tool message persisted in history.
+        # Tool messages are not persisted in history.
         stored = await cm.get_messages(7)
         assert stored is not None
-        assert any(m["role"] == "tool" for m in stored)
+        assert not any(m["role"] == "tool" for m in stored)
 
     @pytest.mark.asyncio
     async def test_no_tools_sent_when_disabled(self):

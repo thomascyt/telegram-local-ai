@@ -433,31 +433,10 @@ class ConversationManager:
             )
             reply_text = assistant_reply.text if hasattr(assistant_reply, 'text') else str(assistant_reply)
 
-            # Extract stats from InferenceResult when available.
+            # Extract stats from the InferenceResult (which carries its token
+            # counts and speed directly, with no nested ``.usage`` wrapper).
             stats = None
-            if hasattr(assistant_reply, 'usage'):
-                usage = assistant_reply.usage
-                if hasattr(usage, 'prompt_tokens') or hasattr(usage, 'completion_tokens'):
-                    prompt_tokens = getattr(usage, 'prompt_tokens', None)
-                    completion_tokens = getattr(usage, 'completion_tokens', None)
-                    total_tokens = getattr(usage, 'total_tokens', None)
-                    if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
-                        total_tokens = prompt_tokens + completion_tokens
-                    # Compute tokens_per_second if we have time info
-                    tokens_per_second = None
-                    if (
-                        hasattr(usage, 'time_taken')
-                        and isinstance(usage.time_taken, (int, float))
-                        and usage.time_taken > 0
-                    ):
-                        tokens_per_second = total_tokens / usage.time_taken if total_tokens else None
-                    stats = InferenceStats(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                        tokens_per_second=tokens_per_second,
-                    )
-            elif hasattr(assistant_reply, 'prompt_tokens') or hasattr(assistant_reply, 'completion_tokens'):
+            if hasattr(assistant_reply, 'prompt_tokens') or hasattr(assistant_reply, 'completion_tokens'):
                 # InferenceResult has token stats directly on it (no .usage wrapper).
                 prompt_tokens = getattr(assistant_reply, 'prompt_tokens', None)
                 completion_tokens = getattr(assistant_reply, 'completion_tokens', None)
@@ -474,10 +453,18 @@ class ConversationManager:
                     )
 
             # Step 3: Commit the COMPLETE exchange only after success.
-            #   - Update stored history with trimmed turns + user message
-            #   - Append assistant message
+            #   - Drop any ``tool`` messages ``_run_with_tools`` appended so the
+            #     stored history stays well-formed (system + turns, no orphaned
+            #     tool results).
+            #   - Append the assistant message.
             #   - Trim again for history_limit
-            self._histories[user_id] = list(messages)  # messages[-1] is user reply
+            committed = [m for m in messages if m.get("role") != "tool"]
+            if not reply_text or not reply_text.strip():
+                # The model returned an empty reply (e.g. the tool-call cap was
+                # hit while it was still emitting tool calls). Keep a non-empty
+                # fallback so the stored history is well-formed.
+                reply_text = "I couldn't produce a final answer right now."
+            self._histories[user_id] = list(committed)
             self._histories[user_id].append(
                 {"role": "assistant", "content": reply_text}
             )

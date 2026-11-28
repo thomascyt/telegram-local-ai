@@ -155,6 +155,17 @@ class TestSearch:
         with pytest.raises(WebSearchError, match="Failed to reach"):
             await client.search("query")  # type: ignore[attr-defined]
 
+    @pytest.mark.asyncio
+    async def test_timeout_raises_web_search_error(self):
+        # Regression test: the timeout handler must build a message from the
+        # stored scalar timeout, not from a non-existent total_seconds().
+        transport = _make_transport(raise_exc=httpx.TimeoutException("slow", request=httpx.Request("GET", "http://x")))
+        client = WebSearchClient(api_key="k", timeout=12.5)
+        client._client = httpx.AsyncClient(transport=transport, timeout=5)
+
+        with pytest.raises(WebSearchError, match="timed out after 12.5s"):
+            await client.search("query")  # type: ignore[attr-defined]
+
 
 # ──────────── format_context() ───────────────────────────────────────
 
@@ -201,10 +212,13 @@ class TestFormatContext:
 
 
 class TestContextManager:
-    def test_aenter_returns_self(self):
+    @pytest.mark.asyncio
+    async def test_aenter_returns_self(self):
         client = WebSearchClient(api_key="k")
-        coro = client.__aenter__()  # type: ignore[attr-defined]
-        assert coro is not None  # returns an awaitable
+        entered = await client.__aenter__()  # type: ignore[attr-defined]
+        assert entered is client
+        assert client._client is not None
+        await client.aclose()  # type: ignore[attr-defined]
 
     async def test_aclose_closes_client(self):
         transport = _make_transport()
